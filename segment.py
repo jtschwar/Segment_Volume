@@ -104,8 +104,6 @@ class image_segmenter:
         self.colors = 'tab10'
         self.colors = np.vstack([[0,0,0],plt.get_cmap(self.colors)(np.arange(len(classes)))[:,:3]])
 
-        print(self.colors)
-
         self.lasso_button = widgets.Button(
             description='lasso select',
             disabled=False,
