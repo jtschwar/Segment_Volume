@@ -69,7 +69,7 @@ class panhandler:
         self.figure.canvas.draw_idle()
 
 class image_segmenter:
-    def __init__(self, in_vol, overlay_alpha=.25,figsize=(10,10),):
+    def __init__(self, in_vol, save_name='seg_volume.h5', overlay_alpha=.25,figsize=(10,10),):
         """
         TODO allow for intializing with a shape instead of an image
         
@@ -81,7 +81,16 @@ class image_segmenter:
 
         self.vol = in_vol
 
-        self.mask_vol = np.zeros(self.vol.shape)
+        self.save_name = save_name
+        try:
+            file = h5py.File(save_name,'r')
+            self.mask_vol = file['mask'][:]
+        except:
+            self.mask_vol = np.zeros(self.vol.shape)
+
+        if self.mask_vol.shape != self.vol.shape:
+            self.mask_vol[:] = np.zeros(self.vol.shape)
+            print('Previous mask has different shape from input volume!!')
 
         (self.nx, self.ny, self.nz) = in_vol.shape
 
@@ -117,12 +126,12 @@ class image_segmenter:
             icon='fill-drip', # (FontAwesome names without the `fa-` prefix)
         )
         
-        self.erase_check_box = widgets.Checkbox(
-            value=False,
-            description='Erase Mode',
-            disabled=False,
-            indent=False
-        )
+        # self.erase_check_box = widgets.Checkbox(
+        #     value=False,
+        #     description='Erase Mode',
+        #     disabled=False,
+        #     indent=False
+        # )
         
         self.reset_button = widgets.Button(
             description='reset',
@@ -221,7 +230,7 @@ class image_segmenter:
     def reset(self,*args):
 
         self.displayed.set_data(self.img)
-        self.mask[:,:] = -1
+        self.mask[:,:] = 0
         self.fig.canvas.draw()
 
     def onclick(self, event):
@@ -239,11 +248,11 @@ class image_segmenter:
     def updateArray(self):
         array = self.displayed.get_array().data
 
-        if self.erase_check_box.value:
-            if self.indices is not None:
-                self.mask[self.indices] = 0
-                array[self.indices] = self.img[self.indices]
-        elif self.indices is not None:
+        # if self.erase_check_box.value:
+        #     if self.indices is not None:
+        #         self.mask[self.indices] = 0
+        #         array[self.indices] = self.img[self.indices]
+        if self.indices is not None:
             self.mask[self.indices] =  1
             # self.mask[np.where(self.img[self.mask] == 0)] = 0
         #     # https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied           
@@ -268,15 +277,15 @@ class image_segmenter:
         self.fig.canvas.draw_idle()
         
     def render(self):
-        layers = [widgets.HBox([self.lasso_button, self.flood_button])]
-        layers.append(widgets.HBox([self.reset_button, self.erase_check_box]))
+        layers = [widgets.HBox([self.lasso_button, self.flood_button, self.reset_button])]
+        # layers.append(widgets.HBox([self.reset_button, self.erase_check_box]))
         layers.append(self.fig.canvas)   
         layers.append(widgets.HBox([self.save_button, self.prev_button, self.next_button]))
         return widgets.VBox(layers)
     
     def save_mask(self,save_if_no_nonzero=False):
 
-        saveFile = h5py.File('seg_au_sto.h5','w')
+        saveFile = h5py.File(self.save_name,'w')
 
         saveFile.create_dataset('original_vol',data=self.vol)
         saveFile.create_dataset('mask',data=self.mask_vol,dtype=np.uint8)
