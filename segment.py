@@ -271,7 +271,7 @@ class image_segmenter:
         self.verts = verts
         p = Path(verts)
 
-        self.indices = p.contains_points(self.pix, radius=0).reshape(256,256)
+        self.indices = p.contains_points(self.pix, radius=0).reshape(self.shape[0],self.shape[1])
 
         self.updateArray()
         self.fig.canvas.draw_idle()
