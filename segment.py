@@ -7,69 +7,68 @@ import numpy as np
 import h5py
 
 __all__ = [
-    'panhandler',
     'image_segmenter'
 ]
 
-class panhandler:
-    """
-    enable right click to pan image
-    this doesn't set up the eventlisteners, whatever calls this needs to do
-    fig.mpl_connect('button_press_event', panhandler.press)
-    fig.mpl_connect('button_release_event', panhandler.release)
+# class panhandler:
+#     """
+#     enable right click to pan image
+#     this doesn't set up the eventlisteners, whatever calls this needs to do
+#     fig.mpl_connect('button_press_event', panhandler.press)
+#     fig.mpl_connect('button_release_event', panhandler.release)
     
-    or somehitng 
-    """
-    def __init__(self, figure):
-        self.figure = figure
-        self._id_drag = None
+#     or somehitng 
+#     """
+#     def __init__(self, figure):
+#         self.figure = figure
+#         self._id_drag = None
 
-    def _cancel_action(self):
-        self._xypress = []
-        if self._id_drag:
-            self.figure.canvas.mpl_disconnect(self._id_drag)
-            self._id_drag = None
+#     def _cancel_action(self):
+#         self._xypress = []
+#         if self._id_drag:
+#             self.figure.canvas.mpl_disconnect(self._id_drag)
+#             self._id_drag = None
         
-    def press(self, event):
-        if event.button == 1:
-            return
-        elif event.button == 3:
-            self._button_pressed = 1
-        else:
-            self._cancel_action()
-            return
+#     def press(self, event):
+#         if event.button == 1:
+#             return
+#         elif event.button == 3:
+#             self._button_pressed = 1
+#         else:
+#             self._cancel_action()
+#             return
 
-        x, y = event.x, event.y
+#         x, y = event.x, event.y
 
-        self._xypress = []
-        for i, a in enumerate(self.figure.get_axes()):
-            if (x is not None and y is not None and a.in_axes(event) and
-                    a.get_navigate() and a.can_pan()):
-                a.start_pan(x, y, event.button)
-                self._xypress.append((a, i))
-                self._id_drag = self.figure.canvas.mpl_connect(
-                    'motion_notify_event', self._mouse_move)
-    def release(self, event):
-        self._cancel_action()
-        self.figure.canvas.mpl_disconnect(self._id_drag)
+#         self._xypress = []
+#         for i, a in enumerate(self.figure.get_axes()):
+#             if (x is not None and y is not None and a.in_axes(event) and
+#                     a.get_navigate() and a.can_pan()):
+#                 a.start_pan(x, y, event.button)
+#                 self._xypress.append((a, i))
+#                 self._id_drag = self.figure.canvas.mpl_connect(
+#                     'motion_notify_event', self._mouse_move)
+#     def release(self, event):
+#         self._cancel_action()
+#         self.figure.canvas.mpl_disconnect(self._id_drag)
 
 
-        for a, _ind in self._xypress:
-            a.end_pan()
-        if not self._xypress:
-            self._cancel_action()
-            return
-        self._cancel_action()
+#         for a, _ind in self._xypress:
+#             a.end_pan()
+#         if not self._xypress:
+#             self._cancel_action()
+#             return
+#         self._cancel_action()
 
-    def _mouse_move(self, event):
-        for a, _ind in self._xypress:
-            # safer to use the recorded button at the _press than current
-            # button: # multiple button can get pressed during motion...
-            a.drag_pan(1, event.key, event.x, event.y)
-        self.figure.canvas.draw_idle()
+#     def _mouse_move(self, event):
+#         for a, _ind in self._xypress:
+#             # safer to use the recorded button at the _press than current
+#             # button: # multiple button can get pressed during motion...
+#             a.drag_pan(1, event.key, event.x, event.y)
+#         self.figure.canvas.draw_idle()
 
 class image_segmenter:
-    def __init__(self, in_vol, save_name='seg_volume.h5', overlay_alpha=.25,figsize=(10,10),):
+    def __init__(self, in_vol, save_name='seg_volume.h5', classes=2, axis=0, overlay_alpha=.25,figsize=(10,10),):
         """
         TODO allow for intializing with a shape instead of an image
         
@@ -80,6 +79,8 @@ class image_segmenter:
         """
 
         self.vol = in_vol
+
+        self.axis = axis
 
         self.save_name = save_name
         try:
@@ -103,16 +104,27 @@ class image_segmenter:
         self.lasso = LassoSelector(self.ax, self.onselect,lineprops=lineprops, button=1,useblit=False)
         self.lasso.set_visible(True)
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
-        self.fig.canvas.mpl_connect('button_release_event', self._release)
-        self.panhandler = panhandler(self.fig)
+        # self.fig.canvas.mpl_connect('button_release_event', self._release)
+        # self.panhandler = panhandler(self.fig)
 
         # setup lasso stuff
         plt.ion()
 
-        classes = np.arange(2)
-        self.colors = 'tab10'
+        if isinstance(classes, int):
+            classes = np.arange(classes)
+        if len(classes)<=10:
+            self.colors = 'tab10'
+        elif len(classes)<=20:
+            self.colors = 'tab20'
+
         self.colors = np.vstack([[0,0,0],plt.get_cmap(self.colors)(np.arange(len(classes)))[:,:3]])
 
+        self.class_dropdown = widgets.Dropdown(
+                options=[(str(classes[i]), i) for i in range(len(classes))],
+                value=0,
+                description='Class:',
+                disabled=False,
+            )
         self.lasso_button = widgets.Button(
             description='lasso select',
             disabled=False,
@@ -197,7 +209,10 @@ class image_segmenter:
             
     def new_image(self, img_idx):
         self.indices=None
-        self.img = self.vol[img_idx,]
+        if self.axis == 0:      self.img = self.vol[img_idx,]
+        elif self.axis == 1:    self.img = self.vol[:,img_idx,]
+        else:                   self.img = self.vol[:,:,img_idx]
+
         # self.img = io.imread(self.image_paths[img_idx])
         self.img_idx = img_idx
         # img_path = self.image_paths[self.img_idx]
@@ -220,12 +235,13 @@ class image_segmenter:
             self.fig.canvas.toolbar.home()
 
         # create mask
-        self.mask = self.mask_vol[img_idx,]
-
+        if self.axis == 0:      self.mask = self.mask_vol[img_idx,]
+        elif self.axis == 1:    self.mask = self.mask_vol[:,img_idx,]
+        else:                   self.mask = self.mask_vol[:,:,img_idx]
         self.updateArray()
 
-    def _release(self, event):
-        self.panhandler.release(event)
+    # def _release(self, event):
+    #     self.panhandler.release(event)
 
     def reset(self,*args):
 
@@ -242,8 +258,8 @@ class image_segmenter:
                 # transpose x and y bc imshow transposes
                 self.indices = flood(self.mask,(np.int(event.ydata), np.int(event.xdata)))
                 self.updateArray()
-        elif event.button == 3:
-            self.panhandler.press(event)
+        # elif event.button == 3:
+        #     self.panhandler.press(event)
 
     def updateArray(self):
         array = self.displayed.get_array().data
@@ -278,7 +294,7 @@ class image_segmenter:
         
     def render(self):
         layers = [widgets.HBox([self.lasso_button, self.flood_button, self.reset_button])]
-        # layers.append(widgets.HBox([self.reset_button, self.erase_check_box]))
+        layers.append(widgets.HBox([self.class_dropdown]))
         layers.append(self.fig.canvas)   
         layers.append(widgets.HBox([self.save_button, self.prev_button, self.next_button]))
         return widgets.VBox(layers)
