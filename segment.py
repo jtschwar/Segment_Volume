@@ -10,72 +10,19 @@ __all__ = [
     'image_segmenter'
 ]
 
-# class panhandler:
-#     """
-#     enable right click to pan image
-#     this doesn't set up the eventlisteners, whatever calls this needs to do
-#     fig.mpl_connect('button_press_event', panhandler.press)
-#     fig.mpl_connect('button_release_event', panhandler.release)
-    
-#     or somehitng 
-#     """
-#     def __init__(self, figure):
-#         self.figure = figure
-#         self._id_drag = None
-
-#     def _cancel_action(self):
-#         self._xypress = []
-#         if self._id_drag:
-#             self.figure.canvas.mpl_disconnect(self._id_drag)
-#             self._id_drag = None
-        
-#     def press(self, event):
-#         if event.button == 1:
-#             return
-#         elif event.button == 3:
-#             self._button_pressed = 1
-#         else:
-#             self._cancel_action()
-#             return
-
-#         x, y = event.x, event.y
-
-#         self._xypress = []
-#         for i, a in enumerate(self.figure.get_axes()):
-#             if (x is not None and y is not None and a.in_axes(event) and
-#                     a.get_navigate() and a.can_pan()):
-#                 a.start_pan(x, y, event.button)
-#                 self._xypress.append((a, i))
-#                 self._id_drag = self.figure.canvas.mpl_connect(
-#                     'motion_notify_event', self._mouse_move)
-#     def release(self, event):
-#         self._cancel_action()
-#         self.figure.canvas.mpl_disconnect(self._id_drag)
-
-
-#         for a, _ind in self._xypress:
-#             a.end_pan()
-#         if not self._xypress:
-#             self._cancel_action()
-#             return
-#         self._cancel_action()
-
-#     def _mouse_move(self, event):
-#         for a, _ind in self._xypress:
-#             # safer to use the recorded button at the _press than current
-#             # button: # multiple button can get pressed during motion...
-#             a.drag_pan(1, event.key, event.x, event.y)
-#         self.figure.canvas.draw_idle()
-
 class image_segmenter:
     def __init__(self, in_vol, save_name='seg_volume.h5', classes=2, axis=0, overlay_alpha=.25,figsize=(10,10),):
-        """
-        TODO allow for intializing with a shape instead of an image
-        
+        """    
         parameters
         ----------
         vol : 3D matrix
             input volume to segment
+        save_name : String
+            Output file name
+        classes : Int or list
+            Number of classes or a list of class names
+        axis : Int (0,1,2)
+            Axis to slice volume
         """
 
         self.vol = in_vol
@@ -104,8 +51,6 @@ class image_segmenter:
         self.lasso = LassoSelector(self.ax, self.onselect,lineprops=lineprops, button=1,useblit=False)
         self.lasso.set_visible(True)
         self.fig.canvas.mpl_connect('button_press_event', self.onclick)
-        # self.fig.canvas.mpl_connect('button_release_event', self._release)
-        # self.panhandler = panhandler(self.fig)
 
         # setup lasso stuff
         plt.ion()
@@ -137,13 +82,6 @@ class image_segmenter:
             button_style='', # 'success', 'info', 'warning', 'danger' or ''
             icon='fill-drip', # (FontAwesome names without the `fa-` prefix)
         )
-        
-        # self.erase_check_box = widgets.Checkbox(
-        #     value=False,
-        #     description='Erase Mode',
-        #     disabled=False,
-        #     indent=False
-        # )
         
         self.reset_button = widgets.Button(
             description='reset',
@@ -240,9 +178,6 @@ class image_segmenter:
         else:                   self.mask = self.mask_vol[:,:,img_idx]
         self.updateArray()
 
-    # def _release(self, event):
-    #     self.panhandler.release(event)
-
     def reset(self,*args):
 
         self.displayed.set_data(self.img)
@@ -258,20 +193,14 @@ class image_segmenter:
                 # transpose x and y bc imshow transposes
                 self.indices = flood(self.mask,(np.int(event.ydata), np.int(event.xdata)))
                 self.updateArray()
-        # elif event.button == 3:
-        #     self.panhandler.press(event)
 
     def updateArray(self):
         array = self.displayed.get_array().data
 
-        # if self.erase_check_box.value:
-        #     if self.indices is not None:
-        #         self.mask[self.indices] = 0
-        #         array[self.indices] = self.img[self.indices]
         if self.indices is not None:
-            self.mask[self.indices] =  1
-            # self.mask[np.where(self.img[self.mask] == 0)] = 0
-        #     # https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied           
+            self.mask[self.indices] =  self.class_dropdown.value + 1
+        
+            # https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied           
             c_overlay = self.mask[self.indices]*255*self.overlay_alpha
             array[self.indices] = (c_overlay + self.img[self.indices]*(1-self.overlay_alpha))
         else:
