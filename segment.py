@@ -11,7 +11,7 @@ __all__ = [
 ]
 
 class image_segmenter:
-    def __init__(self, in_vol, save_name='seg_volume.h5', classes=2, axis=0, overlay_alpha=.25,figsize=(10,10),):
+    def __init__(self, in_vol, save_name='seg_volume.h5', classes=1, axis=0, overlay_alpha=.25,figsize=(10,10),):
         """    
         parameters
         ----------
@@ -151,9 +151,7 @@ class image_segmenter:
         elif self.axis == 1:    self.img = self.vol[:,img_idx,]
         else:                   self.img = self.vol[:,:,img_idx]
 
-        # self.img = io.imread(self.image_paths[img_idx])
         self.img_idx = img_idx
-        # img_path = self.image_paths[self.img_idx]
         self.ax.set_title('Slice #: {}/{}'.format(img_idx,self.nx))
         
         if self.img.shape != self.shape:
@@ -231,17 +229,61 @@ class image_segmenter:
     def save_mask(self,save_if_no_nonzero=False):
 
         saveFile = h5py.File(self.save_name,'w')
-
         saveFile.create_dataset('original_vol',data=self.vol)
-        saveFile.create_dataset('mask',data=self.mask_vol,dtype=np.uint8)
-        
-        seg1 = self.vol * self.mask_vol
-        saveFile.create_dataset('vol1',data=seg1,dtype=np.float32)
 
-        seg2 = self.vol - seg1
-        saveFile.create_dataset('vol2',data=seg2,dtype=np.float32)        
+        mask = np.zeros(self.mask_vol.shape,dtype=int)
+
+        num_classes = len(self.class_dropdown.options)
+
+        for i in range(num_classes):
+
+            # reset local mask and assign to where value of interest
+            mask[:] = 0
+            mask[np.where(self.mask_vol == i + 1)] = 1
+
+            group = saveFile.create_group(str(self.class_dropdown.options[i][0]))
+
+            group.create_dataset('mask',data=mask,dtype=np.uint8)
+
+            seg = self.vol * mask
+            group.create_dataset('vol',data=seg,dtype=np.float32)    
+
+        # Segment any information that's left over
+        mask[:] = 0
+        mask[np.where(self.mask_vol > 0)] = 1
+
+        seg = self.vol * mask
+        final_seg = self.vol - seg
+
+        group = saveFile.create_group('unsegmented_left_over_volume')
+        group.create_dataset('vol',data=final_seg,dtype=np.float32) 
+
+        saveFile.create_dataset('mask',data=self.mask_vol)
+
+        # if num_classes == 1:
+
+        #     saveFile.create_dataset('mask',data=self.mask_vol,dtype=np.uint8)
+
+        #     seg1 = self.vol * self.mask_vol
+        #     saveFile.create_dataset('vol1',data=seg1,dtype=np.float32)
+
+        #     seg2 = self.vol - seg1
+        #     saveFile.create_dataset('vol2',data=seg2,dtype=np.float32)  
+        
+        # else:
+        #     for i in range(num_classes):
+
+        #         # reset local mask and assign to where value of interest
+        #         mask = 0
+        #         mask[np.where(self.mask_vol == i + 1)] = 1
+        #         saveFile.create_dataset('mask',data=self.mask_vol,dtype=np.uint8)
+        
+        #         seg = self.vol * mask
+        #         saveFile.create_dataset('vol_'+str(i),data=seg,dtype=np.float32)    
 
         saveFile.close()
+
+        print('Saved Data Under the Following File Name: ', self.save_name)
 
     def _ipython_display_(self):
         display(self.render())
