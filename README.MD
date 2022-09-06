@@ -1,1 +1,3 @@
-Simple Jupyter Notebook for Segmenting Binary Tomography Volumes 
+Simple Jupyter Notebook for Segmenting Binary Tomography Volumes
+
+Image segmentation is the process of partitioning a digital dataset into multiple segments that share certain characteristics. This is a fundamntal task in computer vision. However writing code to segment images, especially 3D tomographic volumes, can be complex and require hours of coding for one unique scenario. When in realtiy, each material system is complex and coudl easily segmented by drawing regions of interest. Here we present an interactive tool that allows users to easily segment volumes all throiugh a flexible Jupyter Notebook.
