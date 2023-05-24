@@ -105,6 +105,7 @@ class image_segmenter:
             icon='arrow-left',
             disabled=True
         )
+
         self.reset_button.on_click(self.reset)
         self.save_button.on_click(self.save_mask)
         self.next_button.on_click(self._change_image_idx)
@@ -124,6 +125,16 @@ class image_segmenter:
         self.overlay_alpha = overlay_alpha
         self.indices = None
         self.new_image(0)
+
+        # Create Widget for Slice Input and Reaction to New Values
+        self.slice_val_input = widgets.BoundedIntText(value=0,min=0,max=self.nPix,description='Slice #:')
+        self.slice_val_input.observe(self.on_slice_change)
+
+    def on_slice_change(self,change):
+        try:
+            self.new_image(change['new']['value'])
+        except:
+            pass
         
 
     def _change_image_idx(self, button):
@@ -147,12 +158,18 @@ class image_segmenter:
             
     def new_image(self, img_idx):
         self.indices=None
-        if self.axis == 0:      self.img = self.vol[img_idx,]
-        elif self.axis == 1:    self.img = self.vol[:,img_idx,]
-        else:                   self.img = self.vol[:,:,img_idx]
+        if self.axis == 0:      
+            self.img = self.vol[img_idx,]
+            self.nPix = self.nx
+        elif self.axis == 1:    
+            self.img = self.vol[:,img_idx,]
+            self.nPix = self.ny
+        else:                   
+            self.img = self.vol[:,:,img_idx]
+            self.nPix = self.nz
 
         self.img_idx = img_idx
-        self.ax.set_title('Slice #: {}/{}'.format(img_idx,self.nx))
+        self.ax.set_title('Slice #: {}/{}'.format(img_idx,self.nPix))
         
         if self.img.shape != self.shape:
             self.shape = self.img.shape
@@ -221,7 +238,8 @@ class image_segmenter:
         
     def render(self):
         layers = [widgets.HBox([self.lasso_button, self.flood_button, self.reset_button])]
-        layers.append(widgets.HBox([self.class_dropdown]))
+        layers.append(widgets.HBox([self.slice_val_input, self.class_dropdown]))
+        # layers.append(self.slice_val_input)
         layers.append(self.fig.canvas)   
         layers.append(widgets.HBox([self.save_button, self.prev_button, self.next_button]))
         return widgets.VBox(layers)
